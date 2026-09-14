@@ -3,7 +3,7 @@
 
 ## 1. Introduction
 
-As part of the ICA proof-of-concept, the sample application can expose a set of Bluetooth telemetry events to HP. These events are intended to provide a simple and practical interface for consuming Bluetooth-related system information without requiring HP to parse low-level Windows telemetry directly.
+As part of the ICA proof-of-concept, the sample application can expose a set of Bluetooth telemetry events to HP. These events are intended to provide a simple and practical interface for consuming Bluetooth telemetry in a standardized way.
 
 The interface includes:
 
@@ -51,10 +51,10 @@ This event indicates that a Bluetooth audio call has started. In practical terms
 
 | Field | Type | Description |
 |---|---|---|
-| `TimestampMs` | `long` | Timestamp of the event in milliseconds |
+| `TimestampMs` | `long` | Timestamp of the event in milliseconds since Unix epoch |
 | `SessionId` | `int` | Identifier for the call session |
 | `DeviceAddress` | `string` | Bluetooth address of the device associated with the call |
-| `StartedAtMs` | `long` | Timestamp representing when the call started, in milliseconds |
+| `StartedAtMs` | `long` | Timestamp representing when the call started, in milliseconds since Unix epoch |
 
 ---
 
@@ -78,7 +78,7 @@ This event indicates that a Bluetooth audio call has ended.
 
 | Field | Type | Description |
 |---|---|---|
-| `TimestampMs` | `long` | Timestamp of the event in milliseconds |
+| `TimestampMs` | `long` | Timestamp of the event in milliseconds since Unix epoch |
 | `SessionId` | `int` | Identifier for the call session |
 | `DeviceAddress` | `string` | Bluetooth address of the device associated with the call |
 | `DurationMs` | `long` | Duration of the call in milliseconds |
@@ -98,7 +98,7 @@ This event provides quality-related telemetry for an active Bluetooth audio call
 - Correlate call quality with device or platform behavior
 
 **Expected frequency**
-- Emitted as quality snapshots during a call
+- Emitted as quality snapshots during a call, published every sampling period
 - May occur repeatedly while a call is active
 - Frequency depends on the implementation and runtime behavior of the telemetry producer
 
@@ -106,15 +106,12 @@ This event provides quality-related telemetry for an active Bluetooth audio call
 
 | Field | Type | Description |
 |---|---|---|
-| `TimestampMs` | `long` | Timestamp of the event in milliseconds |
-| `DeviceAddress` | `string` | Bluetooth address of the device associated with the call |
-| `RxScore` | `double` | Quality score for the receive audio path |
-| `TxScore` | `double` | Quality score for the transmit audio path |
-| `RxStatus` | `int` | Status indicator for the receive audio path |
-| `TxStatus` | `int` | Status indicator for the transmit audio path |
-
-**Note**  
-If HP plans to present color-based quality indicators such as green, yellow, or red, the mapping from status values to those visual states should be agreed separately as part of the integration contract.
+| `TimestampMs` | `long` | Timestamp of the event in milliseconds since Unix epoch |
+| `DeviceAddress` | `string` | Anonymized device identifier |
+| `RxScore` | `double` | Quality score for the receive audio path (0-5 scale, where higher indicates worse quality) |
+| `TxScore` | `double` | Quality score for the transmit audio path (0-5 scale, where higher indicates worse quality) |
+| `RxStatus` | `string` | Status indicator for the receive audio path (Green/Yellow/Red) |
+| `TxStatus` | `string` | Status indicator for the transmit audio path (Green/Yellow/Red) |
 
 ---
 
@@ -146,7 +143,7 @@ Examples of changes that may trigger this event include:
 
 | Field | Type | Description |
 |---|---|---|
-| `TimestampMs` | `long` | Timestamp of the event in milliseconds |
+| `TimestampMs` | `long` | Timestamp of the event in milliseconds since Unix epoch |
 | `DeviceAddress` | `string` | Bluetooth address of the device |
 | `AdapterAddress` | `string` | Bluetooth address of the local adapter |
 | `FriendlyName` | `string` | Human-readable device name |
@@ -155,7 +152,7 @@ Examples of changes that may trigger this event include:
 | `IsLeAudio` | `bool` | Indicates whether the device supports LE Audio |
 | `Batteries` | `ComponentBattery[]` | Battery information for one or more device components, if available |
 | `IsConnected` | `bool` | Indicates whether the device is currently connected |
-| `LastConnectedTimestampMs` | `long` | Timestamp of the most recent connection, in milliseconds |
+| `LastConnectedTimestampMs` | `long` | Timestamp of the most recent connection, in milliseconds since Unix epoch |
 | `ContainerId` | `string` | Device container identifier |
 | `IsLeAudioActive` | `bool` | Indicates whether LE Audio is currently active |
 | `VendorId` | `uint` | Bluetooth vendor identifier, if available |
@@ -164,7 +161,7 @@ Examples of changes that may trigger this event include:
 | `IsRemoved` | `bool` | Indicates that the device was removed or unpaired rather than simply disconnected |
 
 **Note on battery data**  
-The `Batteries` field contains component-level battery information when available. Depending on the device and platform support, battery data may be present, partial, or absent.
+The `Batteries` field contains component-level battery information when available. For earbuds and similar devices, this typically includes battery data for the left earbud, right earbud, and charging case. Depending on the device and platform support, battery data may be present, partial, or absent.
 
 ---
 
@@ -193,7 +190,7 @@ Supported state values are:
 
 | Field | Type | Description |
 |---|---|---|
-| `TimestampMs` | `long` | Timestamp of the event in milliseconds |
+| `TimestampMs` | `long` | Timestamp of the event in milliseconds since Unix epoch |
 | `PreviousState` | `string` | Previous Bluetooth radio state |
 | `NewState` | `string` | New Bluetooth radio state |
 
@@ -229,7 +226,7 @@ Rather than exposing only a simplified parsed event, this interface can also exp
 | `PayloadFields` | `PayloadField[]` | Collection of payload fields from the raw ETW event |
 
 **Note**  
-The structure of `PayloadFields` depends on the underlying Windows event being forwarded. This gives HP flexibility for deeper analysis, but also means the raw event schema can be broader and less normalized than the parsed ICA event models.
+The structure of `PayloadFields` depends on the underlying Windows event being forwarded. This gives HP flexibility for deeper analysis, but also means the raw event schema can be broader and less normalized than the parsed ICA events.
 
 ---
 
@@ -281,7 +278,7 @@ The proof-of-concept interface is designed to give HP a practical starting point
 
 A concise way to describe the interface to HP is:
 
-> The ICA proof-of-concept exposes a set of application-ready Bluetooth telemetry events covering call start, call end, call quality, device updates, and Bluetooth radio state changes. In addition, the solution can optionally forward the underlying raw Windows ETW events for advanced diagnostics and deeper analysis.
+> The ICA proof-of-concept exposes a set of application-ready Bluetooth telemetry events covering call start, call end, call quality, device updates, and Bluetooth radio state changes. In addition, the interface provides access to raw Windows ETW events for advanced diagnostics and deeper technical analysis when required.
 
 ---
 
