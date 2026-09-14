@@ -12,6 +12,14 @@ The interface includes:
 
 This combination allows HP to integrate at the level most appropriate for its use case: either through normalized application-level events or through access to the underlying raw event payloads.
 
+### Scope of This POC
+
+This proof-of-concept targets users participating in **Microsoft Teams calls** using **Classic Bluetooth audio headsets (SCO/eSCO)**. Bluetooth LE Audio is not included in this initial implementation. During an active Teams call, ICA continuously monitors the Bluetooth connection quality and reports the connection status at approximately 5-second intervals. This enables identification of periods where the Bluetooth link quality degrades and the user experiences issues such as:
+- Audio breakups ("you are breaking up")
+- Choppy or distorted voice quality
+- Temporary loss of audio
+- Complete inability to hear the remote party
+
 ---
 
 ## 2. Summary of Exposed Events
@@ -89,18 +97,19 @@ This event indicates that a Bluetooth audio call has ended.
 
 **Event name:** `BluetoothAudioCallQuality`
 
-This event provides quality-related telemetry for an active Bluetooth audio call. It is intended to expose call-quality measurements during the call rather than only at the beginning or end.
+This event provides quality-related telemetry for an active Bluetooth audio call during a Microsoft Teams voice call. It is intended to expose call-quality measurements during the call rather than only at the beginning or end.
 
 **Typical usage**
 - Monitor call quality over time
 - Detect degraded call experience
 - Support quality dashboards or indicators
+- Identify periods of poor Bluetooth link quality that may correlate with user experience issues
 - Correlate call quality with device or platform behavior
 
 **Expected frequency**
-- Emitted as quality snapshots during a call, published every sampling period
-- May occur repeatedly while a call is active
-- Frequency depends on the implementation and runtime behavior of the telemetry producer
+- Emitted as quality snapshots during an active Teams call
+- Published approximately every 5 seconds while a call is active
+- Event-driven based on sampling intervals and call state
 
 **Payload**
 
@@ -230,7 +239,27 @@ The structure of `PayloadFields` depends on the underlying Windows event being f
 
 ---
 
-## 4. Frequency and Consumption Model
+## 4. POC Scope and Limitations
+
+### Supported Scenarios
+- **Microsoft Teams Calls**: All events are generated only during active Microsoft Teams voice calls
+- **Classic Bluetooth Audio (SCO/eSCO)**: This POC targets classic Bluetooth headsets using Synchronous Connection-Oriented (SCO) or Enhanced Synchronous Connection-Oriented (eSCO) links for audio
+
+### Not Supported in This Implementation
+- **Bluetooth LE Audio**: LE Audio devices and profiles are not included in this initial POC
+- **Non-Teams Calls**: Events are not generated for calls outside of Microsoft Teams (e.g., Skype, telephony, other applications)
+- **Call Quality Issues**: While quality events support general call quality monitoring, this POC is specifically focused on Bluetooth link quality degradation and the resulting user experience impacts
+
+### Quality Degradation Scenarios
+The telemetry is designed to identify periods where Bluetooth connection quality issues manifest as:
+- Audio breakups (user reports "you are breaking up")
+- Choppy or distorted voice quality
+- Temporary loss of audio
+- Complete inability to hear the remote party
+
+---
+
+## 5. Frequency and Consumption Model
 
 From an integration perspective, the events can be grouped into two categories:
 
@@ -256,7 +285,7 @@ These are suited for:
 
 ---
 
-## 5. Integration Value for HP
+## 6. Integration Value for HP
 
 The proof-of-concept interface is designed to give HP a practical starting point for Bluetooth telemetry integration.
 
@@ -274,15 +303,15 @@ The proof-of-concept interface is designed to give HP a practical starting point
 
 ---
 
-## 6. Recommended Positioning for Customer Communication
+## 7. Recommended Positioning for Customer Communication
 
 A concise way to describe the interface to HP is:
 
-> The ICA proof-of-concept exposes a set of application-ready Bluetooth telemetry events covering call start, call end, call quality, device updates, and Bluetooth radio state changes. In addition, the interface provides access to raw Windows ETW events for advanced diagnostics and deeper technical analysis when required.
+> The ICA proof-of-concept exposes a set of application-ready Bluetooth telemetry events for Microsoft Teams calls using Classic Bluetooth audio headsets (SCO/eSCO). Events cover call start, call end, call quality at 5-second intervals, device updates, and Bluetooth radio state changes. In addition, the interface provides access to raw Windows ETW events for advanced diagnostics and deeper technical analysis when required. The telemetry enables identification of periods where Bluetooth link quality degrades, helping correlate connection issues with user experience impacts such as audio breakups or temporary audio loss.
 
 ---
 
-## 7. Qualification
+## 8. Qualification
 
 This document describes the **proof-of-concept event interface** currently intended for HP evaluation.  
 As with any proof-of-concept integration surface, event definitions and detailed payload semantics may be refined during productization or based on partner feedback.
