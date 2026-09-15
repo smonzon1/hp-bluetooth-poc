@@ -3,18 +3,20 @@
 
 ## 1. Introduction
 
-As part of the ICA proof-of-concept, the sample application can expose a set of Bluetooth telemetry events to HP. These events are intended to provide a simple and practical interface for consuming Bluetooth telemetry in a standardized way.
+As part of the ICA proof-of-concept, the sample application can expose a set of Bluetooth telemetry events to HP. These events are intended to provide a simple and practical interface for consuming Bluetooth-related call, device, radio, and firmware telemetry.
 
 The interface includes:
 
 - **Parsed ICA events** for common Bluetooth scenarios
-- **Optional raw Windows ETW event forwarding** for deeper diagnostics and analysis
+- **Raw firmware telemetry statistics** used as inputs for Bluetooth audio quality scoring
 
-This combination allows HP to integrate at the level most appropriate for its use case: either through normalized application-level events or through access to the underlying raw event payloads.
+This combination allows HP to integrate at the level most appropriate for its use case: either through normalized application-level events or through access to the underlying firmware telemetry inputs.
 
 ### Scope of This POC
 
-This proof-of-concept targets users participating in **Microsoft Teams calls** using **Classic Bluetooth audio headsets (SCO/eSCO)**. Bluetooth LE Audio is not included in this initial implementation. During an active Teams call, ICA continuously monitors the Bluetooth connection quality and reports the connection status at approximately 5-second intervals. This enables identification of periods where the Bluetooth link quality degrades and the user experiences issues such as:
+This proof-of-concept targets users participating in **Microsoft Teams calls** using **Classic Bluetooth audio headsets (SCO/eSCO)**. Bluetooth LE Audio is not included in this initial implementation.
+
+The telemetry is designed to help identify scenarios such as:
 - Audio breakups ("you are breaking up")
 - Choppy or distorted voice quality
 - Temporary loss of audio
@@ -31,9 +33,9 @@ The proof-of-concept interface exposes the following event types:
 3. **Bluetooth Audio Call Quality**
 4. **Bluetooth Device Updated**
 5. **Bluetooth Radio State Changed**
-6. **Forwarded ETW Event** (optional raw event forwarding)
+6. **Bluetooth Classic Audio Statistics**
 
-Together, these events cover call lifecycle, call quality, device state changes, Bluetooth radio state changes, and low-level event visibility.
+Together, these events cover call lifecycle, call quality, device state changes, Bluetooth radio state changes, and firmware telemetry inputs for quality scoring.
 
 ---
 
@@ -97,7 +99,7 @@ This event indicates that a Bluetooth audio call has ended.
 
 **Event name:** `BluetoothAudioCallQuality`
 
-This event provides quality-related telemetry for an active Bluetooth audio call during a Microsoft Teams voice call. It is intended to expose call-quality measurements during the call rather than only at the beginning or end.
+This event provides quality-related telemetry for an active Bluetooth audio call during a Microsoft Teams voice call. It is intended to expose call-quality measurements during the call rather than only after the fact.
 
 **Typical usage**
 - Monitor call quality over time
@@ -142,6 +144,8 @@ Examples of changes that may trigger this event include:
 - Update displayed device information
 - Detect device connection and disconnection activity
 - Track battery and device capability changes
+- Available regardless of whether a Microsoft Teams session is active
+- Applies to any Bluetooth type, including BLE
 
 **Expected frequency**
 - Emitted whenever a tracked Bluetooth device changes
@@ -170,7 +174,7 @@ Examples of changes that may trigger this event include:
 | `IsRemoved` | `bool` | Indicates that the device was removed or unpaired rather than simply disconnected |
 
 **Note on battery data**  
-The `Batteries` field contains component-level battery information when available. For earbuds and similar devices, this typically includes battery data for the left earbud, right earbud, and charging case. Depending on the device and platform support, battery data may be present, partial, or absent.
+The `Batteries` field contains component-level battery information when available. For earbuds and similar devices, this typically includes battery data for the left earbud, right earbud, and charging case.
 
 ---
 
@@ -190,6 +194,8 @@ Supported state values are:
 - Update platform or application status indicators
 - Explain downstream device disconnect behavior
 - Support troubleshooting and diagnostics
+- Available regardless of whether a Microsoft Teams session is active
+- Applies to any Bluetooth type, including BLE
 
 **Expected frequency**
 - Emitted when the radio changes state
@@ -205,50 +211,48 @@ Supported state values are:
 
 ---
 
-### 3.6 Forwarded ETW Event
+### 3.6 Bluetooth Classic Audio Statistics
 
-**Event name:** `ForwardedEtwEvent`
+**Event name:** `BluetoothClassicAudioStatistics`
 
-This optional event provides access to the underlying forwarded Windows ETW event payload. It is intended for advanced scenarios where HP may want more detail than the normalized ICA events provide.
-
-Rather than exposing only a simplified parsed event, this interface can also expose the associated raw telemetry content in a structured form.
+This event exposes raw firmware telemetry counters for a single Event 402 reporting interval. It is published by the provider process every sampling period during an active call and carries the raw inputs used for Bluetooth audio quality analysis.
 
 **Typical usage**
-- Advanced diagnostics
-- Deep troubleshooting
-- Correlation with parsed ICA events
-- Custom parsing or analysis on the HP side
+- Compute Bluetooth audio quality scores
+- Monitor raw firmware counters during active calls
+- Correlate telemetry inputs with quality outcomes
+- Support diagnostics and analysis of classic Bluetooth audio behavior
 
 **Expected frequency**
-- Emitted for each raw ETW event that is forwarded
-- Frequency depends on the source event stream and filtering configuration
-- Potentially higher volume than parsed ICA events
+- Emitted every sampling period during an active call
+- Event-driven, not periodic outside active call telemetry collection
 
 **Payload**
 
 | Field | Type | Description |
 |---|---|---|
-| `ProviderGuid` | `string` | Identifier of the Windows ETW provider |
-| `EventId` | `int` | Numeric ETW event identifier |
-| `EventName` | `string` | Name of the ETW event |
-| `TimestampTicks` | `long` | Timestamp of the ETW event in ticks |
-| `PayloadFields` | `PayloadField[]` | Collection of payload fields from the raw ETW event |
+| `TimestampMs` | `long` | Unix ms when Event 402 was received (ETW header timestamp) |
+| `ConnectionHandle` | `int` | SCO/eSCO connection handle from Event 402 TLV `0x6A` |
+| `RxLostPackets` | `int` | Received payloads with errors in this interval (TLV `0x6D`) |
+| `TxLostPackets` | `int` | Transmitted payloads lost or unacknowledged in this interval (TLV `0x6E`) |
+| `SamplingPeriodMs` | `int` | Configured firmware reporting period sent over IOCTL (`1000..10000`, default `5000`) |
 
 **Note**  
-The structure of `PayloadFields` depends on the underlying Windows event being forwarded. This gives HP flexibility for deeper analysis, but also means the raw event schema can be broader and less normalized than the parsed ICA events.
+This event provides raw telemetry inputs only. Scores and status are computed and published on `BluetoothAudioCallQuality`.
 
 ---
 
 ## 4. POC Scope and Limitations
 
 ### Supported Scenarios
-- **Microsoft Teams Calls**: All events are generated only during active Microsoft Teams voice calls
-- **Classic Bluetooth Audio (SCO/eSCO)**: This POC targets classic Bluetooth headsets using Synchronous Connection-Oriented (SCO) or Enhanced Synchronous Connection-Oriented (eSCO) links for audio
+- **Microsoft Teams Calls**: Call lifecycle and call-quality telemetry events are generated during active Microsoft Teams voice calls
+- **Classic Bluetooth Audio (SCO/eSCO)**: This POC targets classic Bluetooth headsets using Synchronous Connection-Oriented (SCO) or Enhanced Synchronous Connection-Oriented (eSCO) links for call-audio scenarios
+- **Device and radio state coverage**: `BluetoothDeviceUpdated` and `BluetoothRadioStateChanged` are active regardless of Teams call state and apply across Bluetooth types, including BLE
 
 ### Not Supported in This Implementation
 - **Bluetooth LE Audio**: LE Audio devices and profiles are not included in this initial POC
 - **Non-Teams Calls**: Events are not generated for calls outside of Microsoft Teams (e.g., Skype, telephony, other applications)
-- **Call Quality Issues**: While quality events support general call quality monitoring, this POC is specifically focused on Bluetooth link quality degradation and the resulting user experience impacts
+- **Call Quality Issues**: While quality events support general call quality monitoring, this POC is specifically focused on Bluetooth link quality degradation and the resulting user experience impact
 
 ### Quality Degradation Scenarios
 The telemetry is designed to identify periods where Bluetooth connection quality issues manifest as:
@@ -275,13 +279,13 @@ These are **event-driven** and occur only when the corresponding condition chang
 ### Snapshot or telemetry events
 These may occur repeatedly over time:
 - `BluetoothAudioCallQuality`
-- `ForwardedEtwEvent`
+- `BluetoothClassicAudioStatistics`
 
 These are suited for:
 - continuous monitoring
 - telemetry dashboards
 - diagnostics
-- deeper behavioral analysis
+- quality score input analysis
 
 ---
 
@@ -295,11 +299,11 @@ The proof-of-concept interface is designed to give HP a practical starting point
 - Clear mapping to Bluetooth scenarios of interest
 - Reduced need for low-level Windows event expertise
 
-### Benefits of raw ETW forwarding
-- Access to deeper technical detail when required
-- Better support for troubleshooting and internal analysis
-- Ability to validate or augment parsed events
-- Flexibility for future diagnostic use cases
+### Benefits of the raw firmware telemetry inputs
+- Exposes the counters used to compute call quality scores
+- Keeps quality calculations aligned with the provider telemetry model
+- Supports diagnostics and validation of quality outcomes
+- Provides a stable input contract for the quality pipeline
 
 ---
 
@@ -307,7 +311,7 @@ The proof-of-concept interface is designed to give HP a practical starting point
 
 A concise way to describe the interface to HP is:
 
-> The ICA proof-of-concept exposes a set of application-ready Bluetooth telemetry events for Microsoft Teams calls using Classic Bluetooth audio headsets (SCO/eSCO). Events cover call start, call end, call quality at 5-second intervals, device updates, and Bluetooth radio state changes. In addition, the interface provides access to raw Windows ETW events for advanced diagnostics and deeper technical analysis when required. The telemetry enables identification of periods where Bluetooth link quality degrades, helping correlate connection issues with user experience impacts such as audio breakups or temporary audio loss.
+> The ICA proof-of-concept exposes a set of application-ready Bluetooth telemetry events for Microsoft Teams calls using Classic Bluetooth audio headsets (SCO/eSCO). Events cover call start, call end, call quality, device changes, Bluetooth radio state, and the raw firmware counters used for quality scoring.
 
 ---
 
