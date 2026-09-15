@@ -316,7 +316,7 @@ The proof-of-concept interface is designed to give HP a practical starting point
 
 A concise way to describe the interface to HP is:
 
-> The ICA proof-of-concept exposes a set of application-ready Bluetooth telemetry events for Bluetooth voice calls over Classic Bluetooth audio headsets (SCO/eSCO). Call start and call end detection are based on Bluetooth audio-path establishment rather than on a specific calling application. The current proof-of-concept has been validated with Microsoft Teams and Zoom. Events cover call start, call end, quality scoring, device updates, radio state changes, and raw firmware telemetry inputs used for call-quality analysis.
+> The ICA proof-of-concept exposes application-ready Bluetooth telemetry for voice calls on Classic Bluetooth headsets (SCO/eSCO). Call detection is based on Bluetooth audio-path activity, not on a specific calling application. The current proof-of-concept has been validated with Microsoft Teams and Zoom and provides events for call lifecycle, call quality, device updates, radio state changes, and quality-analysis telemetry inputs.
 
 ---
 
