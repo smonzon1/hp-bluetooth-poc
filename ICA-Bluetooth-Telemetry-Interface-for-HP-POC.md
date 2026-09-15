@@ -3,18 +3,20 @@
 
 ## 1. Introduction
 
-As part of the ICA proof-of-concept, the sample application can expose a set of Bluetooth telemetry events to HP. These events are intended to provide a simple and practical interface for consuming Bluetooth telemetry in a standardized way.
+As part of the ICA proof-of-concept, the sample application can expose a set of Bluetooth telemetry events to HP. These events are intended to provide a simple and practical interface for consuming Bluetooth-related call, device, radio, and firmware telemetry.
 
 The interface includes:
 
 - **Parsed ICA events** for common Bluetooth scenarios
 - **Raw firmware telemetry statistics** used as inputs for Bluetooth audio quality scoring
 
-This combination allows HP to integrate at the level most appropriate for its use case: either through normalized application-level events or through access to the underlying firmware telemetry inputs used for quality scoring.
+This combination allows HP to integrate at the level most appropriate for its use case: either through normalized application-level events or through access to the underlying firmware telemetry inputs.
 
 ### Scope of This POC
 
-This proof-of-concept targets users participating in **Microsoft Teams calls** using **Classic Bluetooth audio headsets (SCO/eSCO)**. Bluetooth LE Audio is not included in this initial implementation. During an active Teams call, ICA continuously monitors the Bluetooth connection quality and reports the connection status at approximately 5-second intervals. This enables identification of periods where the Bluetooth link quality degrades and the user experiences issues such as:
+This proof-of-concept targets users participating in **Microsoft Teams calls** using **Classic Bluetooth audio headsets (SCO/eSCO)**. Bluetooth LE Audio is not included in this initial implementation.
+
+The telemetry is designed to help identify scenarios such as:
 - Audio breakups ("you are breaking up")
 - Choppy or distorted voice quality
 - Temporary loss of audio
@@ -97,7 +99,7 @@ This event indicates that a Bluetooth audio call has ended.
 
 **Event name:** `BluetoothAudioCallQuality`
 
-This event provides quality-related telemetry for an active Bluetooth audio call during a Microsoft Teams voice call. It is intended to expose call-quality measurements during the call rather than only at the beginning or end.
+This event provides quality-related telemetry for an active Bluetooth audio call during a Microsoft Teams voice call. It is intended to expose call-quality measurements during the call rather than only after the fact.
 
 **Typical usage**
 - Monitor call quality over time
@@ -172,7 +174,7 @@ Examples of changes that may trigger this event include:
 | `IsRemoved` | `bool` | Indicates that the device was removed or unpaired rather than simply disconnected |
 
 **Note on battery data**  
-The `Batteries` field contains component-level battery information when available. For earbuds and similar devices, this typically includes battery data for the left earbud, right earbud, and charging case. Depending on the device and platform support, battery data may be present, partial, or absent.
+The `Batteries` field contains component-level battery information when available. For earbuds and similar devices, this typically includes battery data for the left earbud, right earbud, and charging case.
 
 ---
 
@@ -213,7 +215,7 @@ Supported state values are:
 
 **Event name:** `BluetoothClassicAudioStatistics`
 
-This event exposes raw firmware telemetry counters for a single Event 402 reporting interval. It is published by the provider process every sampling period during an active call and carries the raw inputs used to calculate `BluetoothAudioCallQuality`.
+This event exposes raw firmware telemetry counters for a single Event 402 reporting interval. It is published by the provider process every sampling period during an active call and carries the raw inputs used for Bluetooth audio quality analysis.
 
 **Typical usage**
 - Compute Bluetooth audio quality scores
@@ -244,13 +246,13 @@ This event provides raw telemetry inputs only. Scores and status are computed an
 
 ### Supported Scenarios
 - **Microsoft Teams Calls**: Call lifecycle and call-quality telemetry events are generated during active Microsoft Teams voice calls
-- **Classic Bluetooth Audio (SCO/eSCO)**: This POC targets classic Bluetooth headsets using Synchronous Connection-Oriented (SCO) or Enhanced Synchronous Connection-Oriented (eSCO) links for call-audio quality telemetry
+- **Classic Bluetooth Audio (SCO/eSCO)**: This POC targets classic Bluetooth headsets using Synchronous Connection-Oriented (SCO) or Enhanced Synchronous Connection-Oriented (eSCO) links for call-audio scenarios
 - **Device and radio state coverage**: `BluetoothDeviceUpdated` and `BluetoothRadioStateChanged` are active regardless of Teams call state and apply across Bluetooth types, including BLE
 
 ### Not Supported in This Implementation
 - **Bluetooth LE Audio**: LE Audio devices and profiles are not included in this initial POC
 - **Non-Teams Calls**: Events are not generated for calls outside of Microsoft Teams (e.g., Skype, telephony, other applications)
-- **Call Quality Issues**: While quality events support general call quality monitoring, this POC is specifically focused on Bluetooth link quality degradation and the resulting user experience impacts
+- **Call Quality Issues**: While quality events support general call quality monitoring, this POC is specifically focused on Bluetooth link quality degradation and the resulting user experience impact
 
 ### Quality Degradation Scenarios
 The telemetry is designed to identify periods where Bluetooth connection quality issues manifest as:
@@ -309,7 +311,7 @@ The proof-of-concept interface is designed to give HP a practical starting point
 
 A concise way to describe the interface to HP is:
 
-> The ICA proof-of-concept exposes a set of application-ready Bluetooth telemetry events for Microsoft Teams calls using Classic Bluetooth audio headsets (SCO/eSCO). Events cover call start, call end, call quality at 5-second intervals, device updates, Bluetooth radio state changes, and raw firmware audio statistics used as scoring inputs. `BluetoothDeviceUpdated` and `BluetoothRadioStateChanged` remain active even when no Teams session is active and apply to any Bluetooth type, including BLE. The telemetry enables identification of periods where Bluetooth link quality degrades, helping correlate connection issues with user experience impacts such as audio breakups or temporary audio loss.
+> The ICA proof-of-concept exposes a set of application-ready Bluetooth telemetry events for Microsoft Teams calls using Classic Bluetooth audio headsets (SCO/eSCO). Events cover call start, call end, call quality, device changes, Bluetooth radio state, and the raw firmware counters used for quality scoring.
 
 ---
 
